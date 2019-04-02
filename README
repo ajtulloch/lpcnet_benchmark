@@ -1,0 +1,16 @@
+To compile, just run: 
+./compile.sh
+
+to execute, run:
+./test_lpcnet features.f32 output.sw
+
+where output.sw can be replaced with /dev/null. The features.f32 file contains
+32-bit IEEE float data in little endian format, but test_lpcnet does not
+compensate for endianness, so it won't work on big endian machines (just
+rearranging all of features.f32 should work).
+
+To check that the output is correct, play it with:
+aplay -r 16000 -c 1 -f S16_LE output.sw
+
+The features.f32 file can be concatenated with itself to make it longer.
+The running time on a Broadwell E5-2640 v4 is 21.4 seconds.
