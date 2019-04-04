@@ -31,6 +31,24 @@
 #include "common.h"
 #include "arch.h"
 #include "lpcnet.h"
+#include <time.h>
+
+// call this function to start a nanosecond-resolution timer
+struct timespec timer_start() {
+  struct timespec start_time;
+  clock_gettime(CLOCK_REALTIME, &start_time);
+  return start_time;
+}
+
+// call this function to end a timer, returning nanoseconds elapsed as a long
+double timer_end(struct timespec start_time) {
+  struct timespec end_time;
+  clock_gettime(CLOCK_REALTIME, &end_time);
+  double diffInNanos = (double)(end_time.tv_sec - start_time.tv_sec) * 1.0e9 +
+    (double)(end_time.tv_nsec - start_time.tv_nsec);
+  return diffInNanos;
+}
+
 
 #define LPC_ORDER 16
 #define PREEMPH 0.85f
@@ -152,7 +170,13 @@ void lpcnet_synthesize(LPCNetState *lpcnet, short *output, const float *features
         for (j=0;j<LPC_ORDER;j++) pred -= lpcnet->last_sig[j]*lpc[j];
         last_sig_ulaw = lin2ulaw(lpcnet->last_sig[0]);
         pred_ulaw = lin2ulaw(pred);
-        run_sample_network(&lpcnet->nnet, pdf, condition, gru_a_condition, lpcnet->last_exc, last_sig_ulaw, pred_ulaw);
+        struct timespec start_time = timer_start();
+        int iters = 10000;
+        for (int i = 0; i < iters; ++i) {
+          run_sample_network(&lpcnet->nnet, pdf, condition, gru_a_condition, lpcnet->last_exc, last_sig_ulaw, pred_ulaw);
+        }
+        double total_nanos = timer_end(start_time);
+        printf("Average sample net speed: %fus\n", total_nanos / iters / 1000);
         exc = sample_from_pdf(pdf, DUAL_FC_OUT_SIZE, MAX16(0, 1.5f*pitch_gain - .5f), PDF_FLOOR);
         pcm = pred + ulaw2lin(exc);
         RNN_MOVE(&lpcnet->last_sig[1], &lpcnet->last_sig[0], LPC_ORDER-1);
